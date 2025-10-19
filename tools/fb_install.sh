@@ -2,18 +2,25 @@
 set -euo pipefail
 
 # ============================================================
-#  Firebase Auto Setup for Unity (macOS/Linux)
-#  ------------------------------------------------------------
+#  Firebase Auto Setup for Unity (macOS/Linux; Bash 3 compatible)
 #  Usage:
 #    bash tools/fb_install.sh [config.jsonc] [--force|-f] [--no-cleanup]
+#    (flags can be in any order; first non-flag arg is config path)
 # ============================================================
 
-CONFIG_FILE="${1:-Unity-Firebase-Auto-Setup/tools/firebase_tgz.config.jsonc}"
+# Defaults
+CONFIG_FILE="Unity-Firebase-Auto-Setup/tools/firebase_tgz.config.jsonc"
 FORCE=0
 NO_CLEANUP=0
+
+# Parse args: first non-flag is CONFIG_FILE; flags anywhere
 for arg in "$@"; do
-  [[ "$arg" == "--force" || "$arg" == "-f" ]] && FORCE=1
-  [[ "$arg" == "--no-cleanup" ]] && NO_CLEANUP=1
+  case "$arg" in
+    --force|-f)        FORCE=1 ;;
+    --no-cleanup)      NO_CLEANUP=1 ;;
+    --*)               echo "Unknown flag: $arg"; exit 2 ;;
+    *)                 CONFIG_FILE="$arg" ;;
+  esac
 done
 
 if [[ ! -f "$CONFIG_FILE" ]]; then
@@ -22,16 +29,17 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
   exit 1
 fi
 
-# ------------------------------------------------------------
-#  Parse JSONC config file and export base vars + module list
-# ------------------------------------------------------------
+# Temp files
+ASSIGN_FILE="$(mktemp)"
 MODULES_FILE="$(mktemp)"
-{
-  eval "$(python3 - <<'PY' "$CONFIG_FILE"
+PY_OUT_FILE="$(mktemp)"
+
+# Produce assignments and module lines (BASE_URL/DEST_ROOT/MANIFEST + MODULE <id> <version> <enabled>)
+python3 - "$CONFIG_FILE" >"$PY_OUT_FILE" <<'PY'
 import sys, json, re, pathlib
 p = pathlib.Path(sys.argv[1])
 txt = p.read_text(encoding='utf-8')
-txt = re.sub(r'^\s*//.*$', '', txt, flags=re.M)
+txt = re.sub(r'^\s*//.*$', '', txt, flags=re.M)  # strip // comments
 cfg = json.loads(txt)
 
 print(f'BASE_URL="{cfg["base_url"].rstrip("/")}/"')
@@ -40,36 +48,52 @@ print(f'MANIFEST="{cfg["manifest"]}"')
 
 print("MODULES_START")
 for m in cfg.get("modules", []):
-    mid = m["id"].replace(" ", "")
+    mid = (m.get("id") or "").strip().replace(" ", "")
     ver = (m.get("version") or "").strip()
     en  = "true" if bool(m.get("enabled")) else "false"
-    print(f'MODULE {mid} {ver} {en}')
+    print("MODULE %s %s %s" % (mid, ver, en))
 print("MODULES_END")
 PY
-)"
-} > "$MODULES_FILE"
 
-# Ensure variables are defined
+# Split Python output: eval only assignments; keep MODULE lines
+in_block=0
+while IFS= read -r line; do
+  case "$line" in
+    BASE_URL=*|DEST_ROOT=*|MANIFEST=*) echo "$line" >>"$ASSIGN_FILE" ;;
+    MODULES_START) in_block=1 ;;
+    MODULES_END)   in_block=0 ;;
+    MODULE\ *)     [[ $in_block -eq 1 ]] && echo "$line" >>"$MODULES_FILE" ;;
+    *) : ;;
+  esac
+done < "$PY_OUT_FILE"
+rm -f "$PY_OUT_FILE"
+
+# Apply assignments
+# shellcheck disable=SC1090
+source "$ASSIGN_FILE"
+rm -f "$ASSIGN_FILE"
+
 : "${BASE_URL:?BASE_URL not set}"
 : "${DEST_ROOT:?DEST_ROOT not set}"
 : "${MANIFEST:?MANIFEST not set}"
 
 mkdir -p "$DEST_ROOT"
 
-# ------------------------------------------------------------
-#  Parse module table
-# ------------------------------------------------------------
+# Collect modules (Bash 3 friendly; no associative arrays)
+ALL_IDS=()
+ALL_VERS=()
 ENABLED_IDS=()
-declare -A VER
-in_block=0
-while IFS= read -r line; do
-  [[ "$line" == "MODULES_START" ]] && { in_block=1; continue; }
-  [[ "$line" == "MODULES_END"   ]] && { in_block=0; continue; }
-  [[ $in_block -eq 0 ]] && continue
 
-  read -r tag id ver enabled <<<"$line"
-  [[ "$tag" != "MODULE" ]] && continue
-  VER["$id"]="$ver"
+# Parse "MODULE <id> <version> <enabled>"
+while IFS= read -r line; do
+  set -- $line
+  # $1=MODULE $2=id $3=version $4=enabled
+  id="$2"; ver="$3"; enabled="$4"
+  [[ -z "$id" ]] && continue
+
+  ALL_IDS+=("$id")
+  ALL_VERS+=("$ver")
+
   if [[ "$enabled" == "true" ]]; then
     if [[ -z "$ver" ]]; then
       echo "ERROR: Version is required for enabled module: $id"
@@ -81,28 +105,60 @@ while IFS= read -r line; do
 done < "$MODULES_FILE"
 rm -f "$MODULES_FILE"
 
-# ------------------------------------------------------------
-#  Order modules: app first
-# ------------------------------------------------------------
-ORDERED=()
-has_app=0
+# Helper: get version by id (linear scan; Bash 3 friendly)
+get_version_by_id() {
+  local target="$1"
+  local i
+  for (( i=0; i<${#ALL_IDS[@]}; i++ )); do
+    if [[ "${ALL_IDS[$i]}" == "$target" ]]; then
+      echo "${ALL_VERS[$i]}"
+      return 0
+    fi
+  done
+  echo ""
+  return 1
+}
+
+# -------- Preflight: app must be explicitly enabled with version --------
+app_enabled=0
+app_version=""
 for id in "${ENABLED_IDS[@]}"; do
-  [[ "$id" == "com.google.firebase.app" ]] && has_app=1
+  if [[ "$id" == "com.google.firebase.app" ]]; then
+    app_enabled=1
+    app_version="$(get_version_by_id "com.google.firebase.app")" || true
+    break
+  fi
 done
-if [[ $has_app -eq 0 ]]; then ORDERED+=("com.google.firebase.app"); fi
+if [[ $app_enabled -ne 1 ]]; then
+  echo "ERROR: com.google.firebase.app must be present in config and enabled=true."
+  echo "Fix your config (tools/firebase_tgz.config.jsonc) and re-run."
+  exit 1
+fi
+if [[ -z "$app_version" ]]; then
+  echo "ERROR: com.google.firebase.app is enabled but has no version in config."
+  exit 1
+fi
+
+# Order: app first
+ORDERED=("com.google.firebase.app")
 for id in "${ENABLED_IDS[@]}"; do
   [[ "$id" != "com.google.firebase.app" ]] && ORDERED+=("$id")
 done
 
-# ------------------------------------------------------------
-#  Function: Download and unpack package
-# ------------------------------------------------------------
 download_and_unpack () {
   local id="$1"
-  local version="${VER[$id]}"
+  local version
+  version="$(get_version_by_id "$id")" || true
+  if [[ -z "$version" ]]; then
+    echo "ERROR: No version found for $id"
+    exit 1
+  fi
+
   local url="${BASE_URL}${id}/${id}-${version}.tgz"
   local dest="$DEST_ROOT/$id"
   local pkgjson="$dest/package.json"
+
+  echo "Resolved URL: $url"
 
   if [[ $FORCE -eq 0 && -f "$pkgjson" ]]; then
     echo "- $id already installed -> skip (use --force to reinstall)"
@@ -128,9 +184,6 @@ download_and_unpack () {
   echo "OK  $id -> $dest"
 }
 
-# ------------------------------------------------------------
-#  Function: Ensure dependency exists in manifest.json
-# ------------------------------------------------------------
 ensure_manifest_dep () {
   local id="$1"
   local value="file:../${DEST_ROOT}/${id}"
@@ -152,9 +205,6 @@ else:
 PY
 }
 
-# ------------------------------------------------------------
-#  Function: Cleanup unused packages
-# ------------------------------------------------------------
 cleanup_unused () {
   python3 - "$MANIFEST" "$DEST_ROOT" "${ENABLED_IDS[@]}" <<'PY'
 import json, sys, pathlib, shutil
@@ -189,21 +239,19 @@ else:
 PY
 }
 
-# ------------------------------------------------------------
-#  Main execution flow
-# ------------------------------------------------------------
 echo "== Unity Firebase Auto Setup (bash) =="
+echo "Config    : $CONFIG_FILE"
 echo "Destination: $DEST_ROOT"
-echo "Force mode : $FORCE"
-echo "Cleanup    : $((NO_CLEANUP==0?1:0))"
+echo "Force mode: $FORCE"
+if [[ $NO_CLEANUP -eq 0 ]]; then echo "Cleanup   : 1"; else echo "Cleanup   : 0"; fi
 
-# 1) Download and unpack all enabled modules
+# 1) Download/unpack enabled (app first)
 for id in "${ORDERED[@]}"; do download_and_unpack "$id"; done
 
-# 2) Ensure manifest entries exist
+# 2) Ensure manifest deps
 for id in "${ORDERED[@]}"; do ensure_manifest_dep "$id"; done
 
-# 3) Cleanup if not skipped
+# 3) Cleanup unless skipped
 if [[ $NO_CLEANUP -eq 0 ]]; then
   cleanup_unused
 else
