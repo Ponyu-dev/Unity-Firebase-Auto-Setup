@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage:
-#   bash tools/fb_install.sh [config.jsonc] [--force|-f] [--no-cleanup]
+# ============================================================
+#  Firebase Auto Setup for Unity (macOS/Linux)
+#  ------------------------------------------------------------
+#  Usage:
+#    bash tools/fb_install.sh [config.jsonc] [--force|-f] [--no-cleanup]
+# ============================================================
+
 CONFIG_FILE="${1:-Unity-Firebase-Auto-Setup/tools/firebase_tgz.config.jsonc}"
 FORCE=0
 NO_CLEANUP=0
@@ -17,9 +22,10 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
   exit 1
 fi
 
+# ------------------------------------------------------------
+#  Parse JSONC config file and export base vars + module list
+# ------------------------------------------------------------
 MODULES_FILE="$(mktemp)"
-
-# ВАЖНО: eval выполняем в текущем шелле, а печать списка модулей — в файл
 {
   eval "$(python3 - <<'PY' "$CONFIG_FILE"
 import sys, json, re, pathlib
@@ -43,14 +49,16 @@ PY
 )"
 } > "$MODULES_FILE"
 
-# Проверим, что переменные заданы
+# Ensure variables are defined
 : "${BASE_URL:?BASE_URL not set}"
 : "${DEST_ROOT:?DEST_ROOT not set}"
 : "${MANIFEST:?MANIFEST not set}"
 
 mkdir -p "$DEST_ROOT"
 
-# Разобрать MODULES_FILE
+# ------------------------------------------------------------
+#  Parse module table
+# ------------------------------------------------------------
 ENABLED_IDS=()
 declare -A VER
 in_block=0
@@ -59,7 +67,6 @@ while IFS= read -r line; do
   [[ "$line" == "MODULES_END"   ]] && { in_block=0; continue; }
   [[ $in_block -eq 0 ]] && continue
 
-  # format: MODULE <id> <version> <enabled>
   read -r tag id ver enabled <<<"$line"
   [[ "$tag" != "MODULE" ]] && continue
   VER["$id"]="$ver"
@@ -74,7 +81,9 @@ while IFS= read -r line; do
 done < "$MODULES_FILE"
 rm -f "$MODULES_FILE"
 
-# Порядок: app первой
+# ------------------------------------------------------------
+#  Order modules: app first
+# ------------------------------------------------------------
 ORDERED=()
 has_app=0
 for id in "${ENABLED_IDS[@]}"; do
@@ -85,6 +94,9 @@ for id in "${ENABLED_IDS[@]}"; do
   [[ "$id" != "com.google.firebase.app" ]] && ORDERED+=("$id")
 done
 
+# ------------------------------------------------------------
+#  Function: Download and unpack package
+# ------------------------------------------------------------
 download_and_unpack () {
   local id="$1"
   local version="${VER[$id]}"
@@ -116,6 +128,9 @@ download_and_unpack () {
   echo "OK  $id -> $dest"
 }
 
+# ------------------------------------------------------------
+#  Function: Ensure dependency exists in manifest.json
+# ------------------------------------------------------------
 ensure_manifest_dep () {
   local id="$1"
   local value="file:../${DEST_ROOT}/${id}"
@@ -137,8 +152,10 @@ else:
 PY
 }
 
+# ------------------------------------------------------------
+#  Function: Cleanup unused packages
+# ------------------------------------------------------------
 cleanup_unused () {
-  # Удалить пакеты, которые не включены в конфиг (из manifest и из DEST_ROOT)
   python3 - "$MANIFEST" "$DEST_ROOT" "${ENABLED_IDS[@]}" <<'PY'
 import json, sys, pathlib, shutil
 p_manifest = pathlib.Path(sys.argv[1])
@@ -172,18 +189,21 @@ else:
 PY
 }
 
+# ------------------------------------------------------------
+#  Main execution flow
+# ------------------------------------------------------------
 echo "== Unity Firebase Auto Setup (bash) =="
-echo "Dest    = $DEST_ROOT"
-echo "Force   = $FORCE"
-echo "Cleanup = $((NO_CLEANUP==0?1:0))"
+echo "Destination: $DEST_ROOT"
+echo "Force mode : $FORCE"
+echo "Cleanup    : $((NO_CLEANUP==0?1:0))"
 
-# 1) Download/unpack enabled
+# 1) Download and unpack all enabled modules
 for id in "${ORDERED[@]}"; do download_and_unpack "$id"; done
 
-# 2) Ensure manifest deps
+# 2) Ensure manifest entries exist
 for id in "${ORDERED[@]}"; do ensure_manifest_dep "$id"; done
 
-# 3) Cleanup unless skipped
+# 3) Cleanup if not skipped
 if [[ $NO_CLEANUP -eq 0 ]]; then
   cleanup_unused
 else
