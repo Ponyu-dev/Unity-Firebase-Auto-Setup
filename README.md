@@ -174,6 +174,17 @@ This ensures the latest required Firebase modules are downloaded and ready for U
 
 ---
 
+## 🛣️ Roadmap
+
+| Feature | Status | Notes |
+|----------|---------|-------|
+| **One-command cleanup of all Firebase modules** | Planned | Add `--clean-all` flag. Removes all Firebase and EDM entries from `Packages/manifest.json` and deletes corresponding folders under `dest_root`. Optional `--yes` flag to skip confirmation. |
+| **Cleanup of a specific module** | Planned | Add `--clean <package-id>` (e.g. `--clean com.google.firebase.auth`). Removes only the specified module from `manifest.json` and local cache. |
+| **Global Firebase version** | Planned | Introduce a top-level field `firebase_version`. All Firebase modules inherit it unless overridden individually. Keeps the stack consistent. |
+| **Mandatory core modules** | Planned | Make `com.google.external-dependency-manager` and `com.google.firebase.app` always installed and protected from being disabled or removed. Other modules depend on them. |
+
+---
+
 ## 🧠 License
 
 This project is licensed under the **MIT License** — see [LICENSE](LICENSE).
