@@ -38,6 +38,9 @@ YOUR_UNITY_PROJET/
 │   │   ├── fb_install.sh
 │   │   ├── fb_install.ps1
 │   │   └── firebase_tgz.config.jsonc
+│   ├── ThirdParty/
+│   │   ├── firebase
+│   │   │   ├── .gitkeep
 └── ...
 
 ```
@@ -82,20 +85,6 @@ bash tools/fb_install.sh --no-cleanup
 ✅ Works on **macOS / Windows** and in **CI/CD** pipelines  
 ✅ Configurable through a single JSONC file  
 ✅ Optional flags for `--force`, `--channel=latest`, `--no-cleanup`
-
----
-
-## 📂 Project Structure
-
-```
-unity-firebase-auto-setup/
-├── tools/
-│   ├── fb_install.sh          # macOS/Linux installer
-│   ├── fb_install.ps1         # Windows PowerShell installer
-│   └── firebase_tgz.config.jsonc  # configuration file
-└── README.md
-└── LICENSE
-```
 
 ---
 

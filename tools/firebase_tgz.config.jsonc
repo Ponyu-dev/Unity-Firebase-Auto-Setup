@@ -2,7 +2,7 @@
   // Base registry where .tgz packages are hosted
   "base_url": "https://dl.google.com/games/registry/unity/",
   // Where to unpack packages locally
-  "dest_root": "ThirdParty/firebase",
+  "dest_root": "Unity-Firebase-Auto-Setup/ThirdParty/firebase",
   // Path to Unity manifest.json
   "manifest": "Packages/manifest.json",
   // Modules list: each has id + version + enabled

@@ -1,0 +1,8 @@
+# === Firebase auto-setup cache ===
+ThirdParty/firebase/
+!ThirdParty/firebase/.gitkeep
+
+# Optional: archives downloaded manually
+*.tgz
+*.zip
+*.ideas
