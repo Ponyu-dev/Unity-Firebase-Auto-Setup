@@ -1,0 +1,86 @@
+{
+  // Base registry where .tgz packages are hosted
+  "base_url": "https://dl.google.com/games/registry/unity/",
+  // Where to unpack packages locally
+  "dest_root": "ThirdParty/firebase",
+  // Path to Unity manifest.json
+  "manifest": "Packages/manifest.json",
+  // Modules list: each has id + version + enabled
+  "modules": [
+    {
+      "id": "com.google.external-dependency-manager",
+      "version": "1.2.186",
+      "enabled": true
+    },
+    {
+      "id": "com.google.firebase.app",
+      "version": "12.10.1",
+      "enabled": true
+    },
+    {
+      "id": "com.google.firebase.firestore",
+      "version": "12.10.1",
+      "enabled": false
+    },
+    {
+      "id": "com.google.firebase.functions",
+      "version": "12.10.1",
+      "enabled": false
+    },
+    {
+      "id": "com.google.firebase.storage",
+      "version": "12.10.1",
+      "enabled": false
+    },
+    {
+      "id": "com.google.firebase.app-check",
+      "version": "12.10.1",
+      "enabled": false
+    },
+    {
+      "id": "com.google.firebase.auth",
+      "version": "12.10.1",
+      "enabled": false
+    },
+    {
+      "id": "com.google.firebase.messaging",
+      "version": "12.10.1",
+      "enabled": false
+    },
+    {
+      "id": "com.google.firebase.crashlytics",
+      "version": "12.10.1",
+      "enabled": true
+    },
+    {
+      "id": "com.google.firebase.dynamic-links",
+      "version": "12.10.1",
+      "enabled": false
+    },
+    {
+      "id": "com.google.firebase.installations",
+      "version": "12.10.1",
+      "enabled": false
+    },
+    {
+      "id": "com.google.firebase.instance-id",
+      "version": "12.10.1",
+      "enabled": false
+    },
+    {
+      "id": "com.google.firebase.database",
+      "version": "12.10.1",
+      "enabled": false
+    },
+    {
+      "id": "com.google.firebase.remote-config",
+      "version": "12.10.1",
+      "enabled": false
+    },
+    {
+      "id": "com.google.firebase.analytics",
+      "version": "12.10.1",
+      "enabled": true
+    }
+  ]
+}
