@@ -22,6 +22,57 @@ Instead of bloating your repo, this tool:
 
 ---
 
+## 🧰 Installation & Usage
+### 1️⃣ Clone or download release .zip
+```bash
+git clone https://github.com/Ponyu-dev/Unity-Firebase-Auto-Setup.git
+```
+### 2️⃣ Copy the tools folder to your Unity project root
+Your Unity project should now contain:
+```
+YOUR_UNITY_PROJET/
+├── Packages/
+├── Assets/
+├── Unity-Firebase-Auto-Setup/
+│   ├── tools/
+│   │   ├── fb_install.sh
+│   │   ├── fb_install.ps1
+│   │   └── firebase_tgz.config.jsonc
+└── ...
+
+```
+### 3️⃣ Run installer
+#### macOS / Linux
+```bash
+bash Unity-Firebase-Auto-Setup/tools/fb_install.sh                 # install/update + cleanup
+bash Unity-Firebase-Auto-Setup/tools/fb_install.sh --no-cleanup    # skip cleanup
+bash Unity-Firebase-Auto-Setup/tools/fb_install.sh --force         # reinstall everything
+bash Unity-Firebase-Auto-Setup/tools/fb_install.sh --channel=latest # try latest version (fallback to stable)
+```
+
+#### Windows PowerShell
+```powershell
+powershell -ExecutionPolicy Bypass -File Unity-Firebase-Auto-Setup\tools\fb_install.ps1
+powershell -ExecutionPolicy Bypass -File Unity-Firebase-Auto-Setup\tools\fb_install.ps1 -NoCleanup
+powershell -ExecutionPolicy Bypass -File Unity-Firebase-Auto-Setup\tools\fb_install.ps1 -Force
+powershell -ExecutionPolicy Bypass -File Unity-Firebase-Auto-Setup\tools\fb_install.ps1 -Channel latest
+```
+
+---
+
+## 🧹 Automatic Cleanup
+
+By default, the installer **removes all Firebase SDKs not listed in your config**:
+- Removes entries from `Packages/manifest.json`
+- Deletes unused folders in `ThirdParty/firebase/`
+
+You can skip cleanup with the flag:
+```bash
+bash tools/fb_install.sh --no-cleanup
+```
+
+---
+
 ## ✨ Features
 
 ✅ Downloads official `.tgz` packages from Google Game Package Registry  
@@ -102,39 +153,6 @@ Each module entry controls a single Firebase or EDM4U package.
 ```
 
 > ⚠️ Always keep **`com.google.firebase.app`** enabled — it’s required by most Firebase modules.
-
----
-
-## 🧰 Usage
-
-### macOS / Linux
-```bash
-bash tools/fb_install.sh                 # install/update + cleanup
-bash tools/fb_install.sh --no-cleanup    # skip cleanup
-bash tools/fb_install.sh --force         # reinstall everything
-bash tools/fb_install.sh --channel=latest # try latest version (fallback to stable)
-```
-
-### Windows PowerShell
-```powershell
-powershell -ExecutionPolicy Bypass -File tools\fb_install.ps1
-powershell -ExecutionPolicy Bypass -File tools\fb_install.ps1 -NoCleanup
-powershell -ExecutionPolicy Bypass -File tools\fb_install.ps1 -Force
-powershell -ExecutionPolicy Bypass -File tools\fb_install.ps1 -Channel latest
-```
-
----
-
-## 🧹 Automatic Cleanup
-
-By default, the installer **removes all Firebase SDKs not listed in your config**:
-- Removes entries from `Packages/manifest.json`
-- Deletes unused folders in `ThirdParty/firebase/`
-
-You can skip cleanup with the flag:
-```bash
-bash tools/fb_install.sh --no-cleanup
-```
 
 ---
 
