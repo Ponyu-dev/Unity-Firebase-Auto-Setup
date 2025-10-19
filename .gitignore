@@ -5,4 +5,4 @@ ThirdParty/firebase/
 # Optional: archives downloaded manually
 *.tgz
 *.zip
-*.ideas
+*.idea
